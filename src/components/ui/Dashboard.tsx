@@ -4,7 +4,7 @@ import { Play, Pause, Plus, Settings2, Wifi, Camera, Activity } from 'lucide-rea
 
 export function Dashboard() {
   const { 
-    oysters, spawnOyster, isRunning, toggleSimulation, 
+    spawnOyster, isRunning, toggleSimulation, 
     conveyorSpeed, setConveyorSpeed, latestScan,
     isAutoSpawn, toggleAutoSpawn, autoSpawnRate, setAutoSpawnRate,
     stats
