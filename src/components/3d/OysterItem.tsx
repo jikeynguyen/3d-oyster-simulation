@@ -10,6 +10,7 @@ export function OysterItem({ data }: { data: Oyster }) {
   const { conveyorSpeed, isRunning, removeOyster, markOysterStatus, markOysterGrade } = useSimulationStore();
   const [localX, setLocalX] = useState(data.positionX);
   const [isSorted, setIsSorted] = useState(false);
+  const [isDropped, setIsDropped] = useState(false);
 
   // Load texture không dùng Suspense (chỉ dùng ảnh gốc cho hàu trên băng chuyền)
   const texture = useMemo(() => {
@@ -43,8 +44,10 @@ export function OysterItem({ data }: { data: Oyster }) {
       const isDead = Math.random() > 0.7; // 30% tỉ lệ chết
       markOysterStatus(data.id, isDead);
       
-      // Update màn hình PC khi phát hiện hàu chết
+      const shortId = data.id.substring(0, 5);
       if (isDead) {
+        useSimulationStore.getState().addLog(`[CAM 1] Oyster #${shortId} LIVE/DEAD ANALYSIS: Detected as DEAD. Activating pneumatic ejector to Dead Bin.`, 'cam1');
+        // Update màn hình PC khi phát hiện hàu chết
         useSimulationStore.getState().setLatestScan({
           id: data.id,
           grade: 'DEAD',
@@ -52,6 +55,8 @@ export function OysterItem({ data }: { data: Oyster }) {
           fat: 0,
           sh_sl: 0
         });
+      } else {
+        useSimulationStore.getState().addLog(`[CAM 1] Oyster #${shortId} LIVE/DEAD ANALYSIS: Status is ALIVE. Proceeding to grading.`, 'cam1');
       }
     }
 
@@ -61,13 +66,19 @@ export function OysterItem({ data }: { data: Oyster }) {
       const randomGrade = grades[Math.floor(Math.random() * grades.length)];
       markOysterGrade(data.id, randomGrade);
 
+      const fat = parseFloat((Math.random() * (0.9 - 0.4) + 0.4).toFixed(2));
+      const sh_sl = parseFloat((Math.random() * (1.6 - 1.1) + 1.1).toFixed(2));
+
+      const shortId = data.id.substring(0, 5);
+      useSimulationStore.getState().addLog(`[CAM 2] Oyster #${shortId} QUALITY ANALYSIS: Weight: ${data.weight}g, Fat Index: ${fat}, SH/SL Ratio: ${sh_sl}. Grade assigned: ${randomGrade}. Target sorter armed.`, 'cam2');
+
       // Cập nhật ảnh Camera Feed trên Dashboard
       useSimulationStore.getState().setLatestScan({
         id: data.id,
         grade: randomGrade as string,
         weight: data.weight,
-        fat: parseFloat((Math.random() * (0.9 - 0.4) + 0.4).toFixed(2)),
-        sh_sl: parseFloat((Math.random() * (1.6 - 1.1) + 1.1).toFixed(2))
+        fat: fat,
+        sh_sl: sh_sl
       });
     }
 
@@ -89,10 +100,25 @@ export function OysterItem({ data }: { data: Oyster }) {
     if (shouldSort) {
       useSimulationStore.getState().triggerSorter(targetX);
       setIsSorted(true);
+      
+      const shortId = data.id.substring(0, 5);
+      if (data.isDead) {
+        useSimulationStore.getState().addLog(`[SORTER] Oyster #${shortId} ejected into Dead bin.`, 'sort');
+        useSimulationStore.getState().incrementStat('dead');
+      } else if (data.grade) {
+        useSimulationStore.getState().addLog(`[SORTER] Oyster #${shortId} ejected into Grade ${data.grade} bin.`, 'sort');
+        useSimulationStore.getState().incrementStat(data.grade as 'A'|'B'|'C'|'D');
+      }
     }
 
     // Rơi khỏi băng chuyền nếu chưa được phân loại (Cuối băng 2 ở X=20)
     if (currentX > 20.0) {
+      if (!isDropped) {
+        const shortId = data.id.substring(0, 5);
+        useSimulationStore.getState().addLog(`[END LINE] Oyster #${shortId} reached end of belt. Dropped into UNSORTED bin.`, 'info');
+        useSimulationStore.getState().incrementStat('unsorted');
+        setIsDropped(true);
+      }
       meshRef.current.position.y -= conveyorSpeed * delta * 2;
       if (meshRef.current.position.y < -2.0) {
         removeOyster(data.id);

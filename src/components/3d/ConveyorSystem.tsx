@@ -1,6 +1,6 @@
 import { OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei';
 import { ConveyorBelt } from './ConveyorBelt';
-import { CameraMount, SorterBin, LoadCell } from './Hardware';
+import { CameraMount, SorterBin, LoadCell, EndBin } from './Hardware';
 import { OysterItem } from './OysterItem';
 import { useSimulationStore } from '../../store/simulationStore';
 
@@ -46,11 +46,8 @@ export function ConveyorSystem() {
         {/* Gap 10cm -> Grade D (X=17) */}
         <SorterBin position={[17, 0, 0]} label="Grade D" color="#cc33ff" />
 
-        {/* Thùng chứa Unsorted ở cuối băng chuyền (X=20.5) */}
-        <mesh position={[20.5, -1.5, 0]}>
-          <boxGeometry args={[2, 1.5, 3]} />
-          <meshStandardMaterial color="#666" transparent opacity={0.8} />
-        </mesh>
+        {/* Thùng chứa Unsorted ở cuối băng chuyền (X=21.0) */}
+        <EndBin position={[21.0, -1.5, 0]} label="UNSORTED / REJECT" />
 
         {oysters.map(oyster => (
           <OysterItem key={oyster.id} data={oyster} />

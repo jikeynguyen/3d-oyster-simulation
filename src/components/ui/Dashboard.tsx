@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { useSimulationStore } from '../../store/simulationStore';
-import { Play, Pause, Plus, Settings2, Wifi, Camera } from 'lucide-react';
+import { Play, Pause, Plus, Settings2, Wifi, Camera, Activity } from 'lucide-react';
 
 export function Dashboard() {
   const { 
     oysters, spawnOyster, isRunning, toggleSimulation, 
     conveyorSpeed, setConveyorSpeed, latestScan,
-    isAutoSpawn, toggleAutoSpawn, autoSpawnRate, setAutoSpawnRate
+    isAutoSpawn, toggleAutoSpawn, autoSpawnRate, setAutoSpawnRate,
+    stats
   } = useSimulationStore();
 
   // Logic tự động thả hàu
@@ -22,9 +23,7 @@ export function Dashboard() {
 
     return () => clearInterval(interval);
   }, [isAutoSpawn, isRunning, autoSpawnRate, spawnOyster]);
-
-  const deadCount = oysters.filter(o => o.isDead === true).length;
-  const gradeA = oysters.filter(o => o.grade === 'A').length;
+  // Removed dynamic counts based on oysters array
 
   return (
     <div className="absolute top-0 left-0 w-full h-full p-4 pointer-events-none flex justify-between">
@@ -93,10 +92,14 @@ export function Dashboard() {
 
           <div className="border-t border-gray-700 pt-4 mt-4">
             <h2 className="text-sm font-bold text-gray-400 mb-2">Live Production Stats</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm font-mono">
-              <div className="bg-gray-800 p-2 rounded border border-gray-700">Total: {oysters.length}</div>
-              <div className="bg-red-900/30 p-2 rounded text-red-400 border border-red-900/50">Dead: {deadCount}</div>
-              <div className="bg-green-900/30 p-2 rounded text-green-400 border border-green-900/50">Grade A: {gradeA}</div>
+            <div className="grid grid-cols-2 gap-2 text-[11px] font-mono font-bold tracking-tight">
+              <div className="bg-gray-800 p-1.5 rounded border border-gray-700 text-gray-300">Total: {stats.total}</div>
+              <div className="bg-red-900/30 p-1.5 rounded text-red-400 border border-red-900/50">Dead: {stats.dead}</div>
+              <div className="bg-green-900/30 p-1.5 rounded text-green-400 border border-green-900/50">Grade A: {stats.A}</div>
+              <div className="bg-blue-900/30 p-1.5 rounded text-blue-400 border border-blue-900/50">Grade B: {stats.B}</div>
+              <div className="bg-yellow-900/30 p-1.5 rounded text-yellow-400 border border-yellow-900/50">Grade C: {stats.C}</div>
+              <div className="bg-purple-900/30 p-1.5 rounded text-purple-400 border border-purple-900/50">Grade D: {stats.D}</div>
+              <div className="bg-gray-700/50 p-1.5 rounded text-gray-400 border border-gray-600 col-span-2 text-center">Unsorted / Reject: {stats.unsorted}</div>
             </div>
           </div>
         </div>
@@ -191,21 +194,23 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Log Console */}
-        <div className="bg-black/80 text-green-400 font-mono text-xs p-4 rounded-lg border border-gray-700 pointer-events-auto w-80 h-64 overflow-y-auto flex flex-col-reverse shadow-lg backdrop-blur-sm">
-          <div>
-            <div className="text-gray-500 mb-2 border-b border-gray-800 pb-1 sticky top-0 bg-black/90">// MQTT & HTTP Logs</div>
-            {oysters.map(o => (
-               <div key={o.id} className="mb-1 border-b border-gray-800/50 pb-1 hover:bg-gray-900/50 p-1 rounded">
-                 <div><span className="text-blue-400">[{o.id}]</span> ENC: {o.positionX.toFixed(1)}cm</div>
-                 {o.isDead !== null && (
-                    <div className={o.isDead ? 'text-red-400' : 'text-gray-400'}>
-                      → {o.isDead ? 'DEAD (Trigger Sorter 1)' : 'ALIVE'}
-                    </div>
-                 )}
-                 {o.grade && <div className="text-green-300">→ PCI Grade: {o.grade} (PUB: mqtt://action)</div>}
-               </div>
-            )).reverse()}
+        {/* Log Console -> AI Processing & Event Log */}
+        <div className="bg-gray-800 rounded p-4 shadow-lg border border-gray-700 pointer-events-auto w-80 h-64 flex flex-col">
+          <h2 className="text-sm font-bold text-gray-200 mb-2 flex items-center">
+            <Activity className="w-4 h-4 mr-2" />
+            AI Processing & Event Log
+          </h2>
+          <div className="flex-1 bg-black rounded p-2 overflow-y-auto font-mono text-[10px] space-y-2 border border-gray-700">
+            {useSimulationStore(state => state.processLogs).map((log) => (
+              <div key={log.id} className={`flex items-start ${
+                log.type === 'cam1' ? 'text-red-400' :
+                log.type === 'cam2' ? 'text-green-400' :
+                log.type === 'sort' ? 'text-yellow-400' : 'text-gray-400'
+              }`}>
+                <span className="text-gray-500 mr-2 shrink-0">[{log.time}]</span>
+                <span className="leading-relaxed">{log.text}</span>
+              </div>
+            ))}
           </div>
         </div>
 

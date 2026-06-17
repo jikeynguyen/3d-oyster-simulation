@@ -107,3 +107,20 @@ export function LoadCell({ position }: { position: [number, number, number] }) {
     </group>
   );
 }
+
+export function EndBin({ position, label }: { position: [number, number, number], label: string }) {
+  return (
+    <group position={position}>
+      {/* Thùng chứa to nằm ngang đuôi băng chuyền để hứng đồ dư */}
+      <mesh position={[0, -1.0, 0]}>
+        <boxGeometry args={[2, 1.5, 3]} />
+        <meshStandardMaterial color="#666" transparent opacity={0.7} />
+      </mesh>
+      <Html position={[0, -0.2, 1.6]} center>
+        <div className="bg-gray-800 text-gray-200 font-bold px-2 py-1 rounded text-[10px] whitespace-nowrap border border-gray-500">
+          📥 {label}
+        </div>
+      </Html>
+    </group>
+  );
+}

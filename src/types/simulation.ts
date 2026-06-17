@@ -26,8 +26,22 @@ export interface SimulationState {
   latestScan: { id: string; grade: string; weight: number; fat: number; sh_sl: number } | null;
   setLatestScan: (scan: { id: string; grade: string; weight: number; fat: number; sh_sl: number } | null) => void;
 
+  processLogs: { id: string; time: string; text: string; type: 'info' | 'cam1' | 'cam2' | 'sort' }[];
+  addLog: (text: string, type: 'info' | 'cam1' | 'cam2' | 'sort') => void;
+
   isAutoSpawn: boolean;
   toggleAutoSpawn: () => void;
   autoSpawnRate: number;
   setAutoSpawnRate: (rate: number) => void;
+
+  stats: {
+    total: number;
+    dead: number;
+    A: number;
+    B: number;
+    C: number;
+    D: number;
+    unsorted: number;
+  };
+  incrementStat: (key: keyof SimulationState['stats']) => void;
 }
