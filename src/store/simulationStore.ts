@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { SimulationState, OysterGrade } from '../types/simulation';
+import type { SimulationState } from '../types/simulation';
 
 export const useSimulationStore = create<SimulationState>((set) => ({
   oysters: [],
@@ -29,10 +29,17 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   removeOyster: (id) => set((state) => ({
     oysters: state.oysters.filter((o) => o.id !== id)
   })),
-  conveyorSpeed: 2.0, // units per second
+  conveyorSpeed: 1.0, // 0.1 m/s (1.0 units per second in our scale)
   setConveyorSpeed: (speed) => set({ conveyorSpeed: speed }),
   isRunning: true,
   toggleSimulation: () => set((state) => ({ isRunning: !state.isRunning })),
   activeSorters: {},
   triggerSorter: (x) => set((state) => ({ activeSorters: { ...state.activeSorters, [x]: Date.now() } })),
+  latestScan: null,
+  setLatestScan: (scan) => set({ latestScan: scan }),
+  
+  isAutoSpawn: false,
+  toggleAutoSpawn: () => set((state) => ({ isAutoSpawn: !state.isAutoSpawn })),
+  autoSpawnRate: 20, // mặc định 20 con / phút
+  setAutoSpawnRate: (rate) => set({ autoSpawnRate: rate }),
 }));

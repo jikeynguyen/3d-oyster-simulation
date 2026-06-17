@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import type { Oyster, OysterGrade } from '../../types/simulation';
@@ -7,11 +7,19 @@ import * as THREE from 'three';
 
 export function OysterItem({ data }: { data: Oyster }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const { conveyorSpeed, isRunning, updateOysterBelt, removeOyster, markOysterStatus, markOysterGrade } = useSimulationStore();
+  const { conveyorSpeed, isRunning, removeOyster, markOysterStatus, markOysterGrade } = useSimulationStore();
   const [localX, setLocalX] = useState(data.positionX);
   const [isSorted, setIsSorted] = useState(false);
 
-  useFrame((state, delta) => {
+  // Load texture không dùng Suspense (chỉ dùng ảnh gốc cho hàu trên băng chuyền)
+  const texture = useMemo(() => {
+    const loader = new THREE.TextureLoader();
+    const t = loader.load(`${import.meta.env.BASE_URL}conhaungon.png`);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }, []);
+
+  useFrame((_state, delta) => {
     if (!isRunning || !meshRef.current) return;
 
     let currentX = localX;
@@ -22,76 +30,88 @@ export function OysterItem({ data }: { data: Oyster }) {
       setLocalX(currentX);
       meshRef.current.position.x = currentX;
     } else {
-      // Nếu đã bị gạt, chỉ rơi xuống theo trục Z (không đi tới nữa)
-      meshRef.current.position.z -= conveyorSpeed * delta * 4;
-      if (meshRef.current.position.z < -1.5) {
+      // Bị gạt thì văng ngang theo trục Z âm
+      meshRef.current.position.z -= conveyorSpeed * delta * 5;
+      if (meshRef.current.position.z < -3.0) {
         removeOyster(data.id);
       }
-      return; 
+      return;
     }
 
-    // Logic Băng tải 1
-    if (data.beltIndex === 0) {
-      if (currentX > 3.0) { // Cuối băng 1
-        updateOysterBelt(data.id, 1); // Chuyển sang băng 2, X reset về 0
+    // Camera 1: Sống/Chết ở vị trí x = 2.0
+    if (currentX > 2.0 && data.isDead === null) {
+      const isDead = Math.random() > 0.7; // 30% tỉ lệ chết
+      markOysterStatus(data.id, isDead);
+      
+      // Update màn hình PC khi phát hiện hàu chết
+      if (isDead) {
+        useSimulationStore.getState().setLatestScan({
+          id: data.id,
+          grade: 'DEAD',
+          weight: data.weight,
+          fat: 0,
+          sh_sl: 0
+        });
       }
-    } 
-    // Logic Băng tải 2
-    else if (data.beltIndex === 1) {
-      // Camera 1: Sống/Chết ở vị trí x = 1.0
-      if (currentX > 1.0 && data.isDead === null) {
-        const isDead = Math.random() > 0.7; // 30% tỉ lệ chết cho dễ test
-        markOysterStatus(data.id, isDead);
-      }
+    }
 
-      // Camera 2: Grading ở vị trí x = 3.0
-      if (currentX > 3.0 && data.isDead === false && data.grade === null) {
-        const grades: OysterGrade[] = ['A', 'B', 'C', 'D'];
-        const randomGrade = grades[Math.floor(Math.random() * grades.length)];
-        markOysterGrade(data.id, randomGrade);
-      }
+    // Camera 2: Grading ở vị trí x = 8.0
+    if (currentX > 8.0 && data.isDead === false && data.grade === null) {
+      const grades: OysterGrade[] = ['A', 'B', 'C', 'D'];
+      const randomGrade = grades[Math.floor(Math.random() * grades.length)];
+      markOysterGrade(data.id, randomGrade);
 
-      // Kiểm tra xem đã đến lúc bị gạt chưa
-      let shouldSort = false;
-      let targetX = 0;
+      // Cập nhật ảnh Camera Feed trên Dashboard
+      useSimulationStore.getState().setLatestScan({
+        id: data.id,
+        grade: randomGrade as string,
+        weight: data.weight,
+        fat: parseFloat((Math.random() * (0.9 - 0.4) + 0.4).toFixed(2)),
+        sh_sl: parseFloat((Math.random() * (1.6 - 1.1) + 1.1).toFixed(2))
+      });
+    }
 
-      if (data.isDead === true && currentX >= 2.0) {
+    // Kiểm tra xem đã đến lúc bị gạt chưa
+    let shouldSort = false;
+    let targetX = 0;
+
+    if (data.isDead === true && currentX >= 5.0) {
+      shouldSort = true;
+      targetX = 5.0;
+    } else if (data.isDead === false && data.grade) {
+      const targetForGrade = data.grade === 'A' ? 14.0 : data.grade === 'B' ? 15.0 : data.grade === 'C' ? 16.0 : 17.0;
+      if (currentX >= targetForGrade) {
         shouldSort = true;
-        targetX = 2.0;
-      } else if (data.isDead === false && data.grade) {
-        const targetForGrade = data.grade === 'A' ? 4.0 : data.grade === 'B' ? 5.0 : data.grade === 'C' ? 6.0 : 7.0;
-        if (currentX >= targetForGrade) {
-          shouldSort = true;
-          targetX = targetForGrade;
-        }
+        targetX = targetForGrade;
       }
+    }
 
-      if (shouldSort) {
-        useSimulationStore.getState().triggerSorter(targetX);
-        setIsSorted(true);
-      }
+    if (shouldSort) {
+      useSimulationStore.getState().triggerSorter(targetX);
+      setIsSorted(true);
+    }
 
-      // Rơi khỏi băng chuyền nếu chưa được phân loại (Cuối băng 2)
-      if (currentX > 8.0) {
+    // Rơi khỏi băng chuyền nếu chưa được phân loại (Cuối băng 2 ở X=20)
+    if (currentX > 20.0) {
+      meshRef.current.position.y -= conveyorSpeed * delta * 2;
+      if (meshRef.current.position.y < -2.0) {
         removeOyster(data.id);
       }
     }
   });
 
-  // Chọn màu sắc
-  let color = '#ffaa00'; // Mặc định
-  if (data.isDead === true) color = '#ff3333';
-  if (data.grade === 'A') color = '#33ff33';
-  if (data.grade === 'B') color = '#33ccff';
-  
   return (
-    <mesh ref={meshRef} position={[localX, 0.1, 0]}>
-      <sphereGeometry args={[0.15, 16, 16]} />
-      <meshStandardMaterial color={color} roughness={0.7} />
-      <Html position={[0, 0.3, 0]} center>
-        <div className="bg-white/80 text-black px-1 rounded text-[10px] whitespace-nowrap shadow border">
-          {data.id} <br/> {data.weight}g <br/> 
-          {data.isDead === true ? 'DEAD' : data.grade ? `Grade: ${data.grade}` : ''}
+    <mesh ref={meshRef} position={[localX, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Vỏ hàu kích thước 15cm x 15cm */}
+      <planeGeometry args={[1.5, 1.5]} />
+      {/* Giữ nguyên màu trắng để texture hiển thị màu gốc của ảnh */}
+      <meshStandardMaterial map={texture} transparent={true} color="#ffffff" roughness={0.7} side={THREE.DoubleSide} />
+
+      {/* Nhãn thông số bẻ cong lại để dựng đứng vuông góc với mặt phẳng hàu */}
+      <Html position={[0, 0, 1.0]} center rotation={[Math.PI / 2, 0, 0]}>
+        <div className="bg-white/90 text-black px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap shadow-md border border-gray-300 transform -translate-y-full">
+          <strong>ID: {data.id}</strong> <br /> {data.weight}g <br />
+          {data.isDead === true ? <span className="text-red-600 font-bold">DEAD</span> : data.grade ? <span className="text-green-600 font-bold">Grade {data.grade}</span> : <span className="text-gray-500">Scanning...</span>}
         </div>
       </Html>
     </mesh>

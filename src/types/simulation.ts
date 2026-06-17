@@ -23,4 +23,11 @@ export interface SimulationState {
   toggleSimulation: () => void;
   activeSorters: Record<number, number>;
   triggerSorter: (x: number) => void;
+  latestScan: { id: string; grade: string; weight: number; fat: number; sh_sl: number } | null;
+  setLatestScan: (scan: { id: string; grade: string; weight: number; fat: number; sh_sl: number } | null) => void;
+
+  isAutoSpawn: boolean;
+  toggleAutoSpawn: () => void;
+  autoSpawnRate: number;
+  setAutoSpawnRate: (rate: number) => void;
 }
